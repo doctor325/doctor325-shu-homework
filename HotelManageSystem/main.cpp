@@ -2,9 +2,9 @@
 #include <string>
 #include <fstream>
 #include <cctype>
-#include <cerrno>  // 对于errno和strerror()
-#include <cstring> // 对于strerror()
 #include <iomanip>
+#include "ciallo.h"
+#include <windows.h>
 
 using namespace std;
 
@@ -95,7 +95,7 @@ void ShowQueryRoomMenu()
     cout << "**********  请选择查询内容    **************" << endl;
     cout << "**********  1.房间类型       **************" << endl;
     cout << "**********  2.房间价格区间   **************" << endl;
-    cout << "**********  0.返回上级菜单    **************" << endl;
+    cout << "**********  3.返回上级菜单    **************" << endl;
     cout << "********************************************" << endl;
 }
 
@@ -320,7 +320,7 @@ bool IsValidDateString(const string &date_str)
     return IsValidDate(year, month, day);
 }
 
-// 检查是否是新房间
+// 检查是否是新房号
 bool IsNewRoom(room_node *head, const string &room_number)
 {
     room_node *p = head->next;
@@ -350,7 +350,7 @@ bool IsNewGuest(guest_node *head, const string &id)
     return true;
 }
 
-// 检验入住时间和离开时间是否合理
+// 检验入住时间和离开时间是否合法
 bool CheckInAndOutTime(const string &check_in_time, const string &check_out_time)
 {
     // 检查入住时间是否小于离开时间
@@ -371,7 +371,7 @@ bool CheckInAndOutTime(const string &check_in_time, const string &check_out_time
     return true;
 }
 
-// 计算距离1900-01-01天数
+// 计算距1900-01-01天数
 int DateToDays(int year, int month, int day)
 {
     int total = 0;
@@ -456,7 +456,7 @@ void ShowGuestInfo(guest_node *p)
 {
     if (p == nullptr)
     {
-        cout << "客人信息不存在！" << endl;
+        cout << "客人信息不存在。" << endl;
         return;
     }
 
@@ -474,20 +474,29 @@ void ShowGuestInfo(guest_node *p)
 void PrintRoomHeader()
 {
     cout << left
-         << setw(12) << "房间编号"
+         << setw(16) << "房间编号"
          << setw(16) << "房间类型"
-         << setw(14) << "房间价格"
+         << setw(16) << "房间价格"
          << setw(10) << "房间状态"
          << endl;
 
     cout << string(52, '-') << endl;
 }
 
-void ShowRoomInfo(room_node* p)
+// 输出客房信息
+void ShowRoomInfo(room_node *p)
 {
+    // 去除房间类型的尾部空格
+    string type = p->room.room_type;
+    size_t end_pos = type.find_last_not_of(' ');
+    if (end_pos != string::npos)
+    {
+        type = type.substr(0, end_pos + 1);
+    }
+
     cout << left
          << setw(12) << p->room.room_number
-         << setw(16) << p->room.room_type
+         << setw(16) << type
          << setw(14) << p->room.room_price
          << setw(10) << (p->room.room_status == 0 ? "空闲" : "已入住")
          << endl;
@@ -523,7 +532,7 @@ void FindGuest(guest_node *ghead, room_node *rhead)
 
             p = p->next;
         }
-        cout << "未找到该身份证号的客人信息！" << endl;
+        cout << "未找到该身份证号的客人信息。" << endl;
         break;
     }
     case 2:
@@ -535,7 +544,15 @@ void FindGuest(guest_node *ghead, room_node *rhead)
         ElemType total_cost = 0;
         while (p != nullptr)
         {
-            if (p->guest.name == name)
+            // 去除客人姓名的尾部空格后再比较
+            string guest_name = p->guest.name;
+            size_t end_pos = guest_name.find_last_not_of(' ');
+            if (end_pos != string::npos)
+            {
+                guest_name = guest_name.substr(0, end_pos + 1);
+            }
+
+            if (guest_name == name)
             {
                 string room_number = p->guest.room_number;
                 total_cost = CalculateTotalCost(rhead, room_number, p);
@@ -546,7 +563,7 @@ void FindGuest(guest_node *ghead, room_node *rhead)
 
             p = p->next;
         }
-        cout << "未找到该姓名的客人信息！" << endl;
+        cout << "未找到该姓名的客人信息。" << endl;
         break;
     }
     case 3:
@@ -567,7 +584,7 @@ void ShowAllGuests(guest_node *ghead, room_node *rhead)
     guest_node *p = ghead->next;
     if (p == nullptr)
     {
-        cout << "当前暂无客人信息！" << endl;
+        cout << "当前暂无客人信息。" << endl;
         return;
     }
     PrintGuestHeader();
@@ -581,7 +598,7 @@ void ShowAllGuests(guest_node *ghead, room_node *rhead)
     }
 }
 
-// 新增客人信息，用身份证号检验，如果不存在，逐项添加，花费=0，状态=1
+// 新增客人信息，用身份证号验证，如果不存在，逐项添加，花费=0，状态=1
 void AddGuest(guest_node *ghead, room_node *rhead)
 {
     Guest new_guest;
@@ -590,7 +607,7 @@ void AddGuest(guest_node *ghead, room_node *rhead)
     // 身份证号输入循环
     while (true)
     {
-        cout << "请输入客人身份证号（输入0取消）：";
+        cout << "请输入客人身份证号：";
         cin >> id;
         if (id == "0")
             return; // 用户取消
@@ -609,7 +626,7 @@ void AddGuest(guest_node *ghead, room_node *rhead)
         else
         {
             new_guest.id = id;
-            break; // 身份证号合法且未存在
+            break; // 身份证号合法且不存在
         }
     }
 
@@ -617,10 +634,10 @@ void AddGuest(guest_node *ghead, room_node *rhead)
     cout << "请输入客人姓名：";
     cin >> new_guest.name;
 
-    // 入住时间输入循环
+    // 入住时间输入验证
     while (true)
     {
-        cout << "请输入入住时间(YYYY-MM-DD)，输入0取消：";
+        cout << "请输入入住时间(YYYY-MM-DD)：";
         cin >> new_guest.check_in_time;
         if (new_guest.check_in_time == "0")
             return;
@@ -632,10 +649,10 @@ void AddGuest(guest_node *ghead, room_node *rhead)
         break;
     }
 
-    // 离开时间输入循环
+    // 离开时间输入验证
     while (true)
     {
-        cout << "请输入离开时间(YYYY-MM-DD)，输入0取消：";
+        cout << "请输入离开时间(YYYY-MM-DD)：";
         cin >> new_guest.check_out_time;
         if (new_guest.check_out_time == "0")
             return;
@@ -652,11 +669,11 @@ void AddGuest(guest_node *ghead, room_node *rhead)
         break;
     }
 
-    // 房间编号输入循环
+    // 房间编号输入验证
     string room_number;
     while (true)
     {
-        cout << "请输入房间编号（输入0取消）：";
+        cout << "请输入房间编号：";
         cin >> room_number;
         if (room_number == "0")
             return;
@@ -676,7 +693,7 @@ void AddGuest(guest_node *ghead, room_node *rhead)
             {
                 if (p->room.room_status == 1)
                 {
-                    cout << "该房间已有客人入住，请重新选择！" << endl;
+                    cout << "该房间已有客人入住，请重新选择。" << endl;
                     can_use = false;
                     break;
                 }
@@ -710,7 +727,7 @@ void AddGuest(guest_node *ghead, room_node *rhead)
     cout << "新客人添加成功！" << endl;
 }
 
-// 修改客人信息，用身份证号检验
+// 修改客人信息，用身份证号验证
 void ModifyGuest(guest_node *ghead, room_node *rhead)
 {
     string id;
@@ -720,7 +737,7 @@ void ModifyGuest(guest_node *ghead, room_node *rhead)
     // 输入要修改的客人身份证号
     while (true)
     {
-        cout << "请输入要修改的客人身份证号（输入0取消）：";
+        cout << "请输入要修改的客人身份证号：";
         cin >> id;
         if (id == "0")
             return; // 用户取消操作
@@ -745,7 +762,7 @@ void ModifyGuest(guest_node *ghead, room_node *rhead)
             ShowModifyGuestMenu(); // 显示修改菜单
             while (true)
             {
-                cout << "请输入要修改的选项（输入0取消）：";
+                cout << "请输入要修改的选项：";
                 cin >> choice;
                 if (choice == 0)
                     return; // 取消修改操作
@@ -802,7 +819,7 @@ void ModifyGuest(guest_node *ghead, room_node *rhead)
                     string original_room_number = p->guest.room_number;
                     while (true)
                     {
-                        cout << "请输入新的房间编号（输入0取消）：";
+                        cout << "请输入新的房间编号：";
                         cin >> p->guest.room_number;
                         if (p->guest.room_number == "0")
                             return; // 取消操作
@@ -865,8 +882,7 @@ void ModifyGuest(guest_node *ghead, room_node *rhead)
                 default:
                 {
                     cout << "无效的选项，请重新输入！" << endl;
-                    continue; // 如果选择无效，重新提示输入
-                
+                    break; // 如果选择无效，重新提示输入
                 }
                 }
 
@@ -878,7 +894,7 @@ void ModifyGuest(guest_node *ghead, room_node *rhead)
             {
                 p->guest.check_in_time = old_in;
                 p->guest.check_out_time = old_out;
-                cout << "时间不合法，已恢复原数据！" << endl;
+                cout << "时间不合法，已恢复原数据。" << endl;
                 return;
             }
 
@@ -897,7 +913,7 @@ void ModifyGuest(guest_node *ghead, room_node *rhead)
     }
 }
 
-// 删除客人信息，用身份证号检验
+// 删除客人信息，用身份证号验证
 void DeleteGuest(guest_node *ghead, room_node *rhead)
 {
     string id;
@@ -926,14 +942,14 @@ void DeleteGuest(guest_node *ghead, room_node *rhead)
             }
             if (!found)
             {
-                cout << "未找到该房间信息！" << endl;
+                cout << "未找到该房间信息。" << endl;
                 return;
             }
             else
-            { // 删除操作
+            { // 删除操作1
                 prev->next = p->next;
                 delete p;
-                cout << "删除成功！" << endl;
+                cout << "删除成功。" << endl;
                 return;
             }
         }
@@ -944,7 +960,7 @@ void DeleteGuest(guest_node *ghead, room_node *rhead)
 }
 
 //------------------------------------------------客房操作-------------------------------------------------------
-// 查询客房信息，有房间类型和价格区间两种方式
+// 查询客房信息 ，有房间类型和价格区间两种方式
 void FindRoom(room_node *head)
 {
     string room_type;
@@ -964,7 +980,16 @@ void FindRoom(room_node *head)
         PrintRoomHeader();
         while (p != nullptr)
         {
-            if (p->room.room_type == room_type)
+            // 去除房间类型的尾部空格后再比较
+            string type = p->room.room_type;
+            // 去除尾部空格的函数
+            size_t end_pos = type.find_last_not_of(' ');
+            if (end_pos != string::npos)
+            {
+                type = type.substr(0, end_pos + 1);
+            }
+
+            if (type == room_type)
             {
                 ShowRoomInfo(p);
                 count++;
@@ -974,7 +999,7 @@ void FindRoom(room_node *head)
         if (count == 0)
         {
             cout << "---------------------------------" << endl;
-            cout << "未找到该类型房间信息！" << endl;
+            cout << "未找到该类型房间信息。" << endl;
         }
         break;
     }
@@ -1007,7 +1032,7 @@ void FindRoom(room_node *head)
         if (count == 0)
         {
             cout << "---------------------------------" << endl;
-            cout << "未找到该价格区间房间信息！" << endl;
+            cout << "未找到该价格区间房间信息。" << endl;
         }
         break;
     }
@@ -1023,16 +1048,16 @@ void FindRoom(room_node *head)
     }
 }
 
-// 新增客房信息，用房间编号检验
+// 新增客房信息，用房间编号检测
 void AddRoom(room_node *head)
 {
     Room new_room;
     string room_number;
 
-    /* ---------- 房间编号输入（死循环校验） ---------- */
+    /* ---------- 房间编号输入（循环校验） ---------- */
     while (true)
     {
-        cout << "请输入新增客房编号（输入0取消）：";
+        cout << "请输入新增客房编号：";
         cin >> room_number;
 
         if (room_number == "0")
@@ -1060,6 +1085,7 @@ void AddRoom(room_node *head)
         if (new_room.room_type.empty())
         {
             cout << "房间类型不能为空，请重新输入！" << endl;
+            continue;
         }
         else
         {
@@ -1101,8 +1127,7 @@ void AddRoom(room_node *head)
     cout << "新房间添加成功！" << endl;
 }
 
-
-// 修改客房信息，用房间编号检验
+// 修改客房信息，用房间编号检测
 void ModifyRoom(room_node *head)
 {
     string room_number;
@@ -1111,7 +1136,7 @@ void ModifyRoom(room_node *head)
     /* ---------- 输入房间编号 ---------- */
     while (true)
     {
-        cout << "请输入要修改的客房编号（输入0取消）：";
+        cout << "请输入要修改的客房编号：";
         cin >> room_number;
 
         if (room_number == "0")
@@ -1143,12 +1168,12 @@ void ModifyRoom(room_node *head)
         }
     }
 
-    /* ---------- 菜单循环 ---------- */
+    /* ---------- 菜单选择 ---------- */
     while (true)
     {
         int choice;
         ShowModifyRoomMenu();
-        cout << "请输入修改内容（输入0返回）：";
+        cout << "请输入修改内容：";
         cin >> choice;
 
         if (choice == 0)
@@ -1194,9 +1219,13 @@ void ModifyRoom(room_node *head)
             }
             break;
         }
+        case 3:
+        {
+            return;
+        }
         default:
         {
-            cout << "无效选项，请重新选择！" << endl;
+            cout << "无效选项，请重新选择。" << endl;
             continue;
         }
         }
@@ -1204,7 +1233,6 @@ void ModifyRoom(room_node *head)
         cout << "房间信息修改成功！" << endl;
     }
 }
-
 
 //------------------------------------------------子菜单-------------------------------------------------------
 // 客房子菜单
@@ -1321,6 +1349,7 @@ void GuestMenu(guest_node *guest_head, room_node *room_head)
 //------------------------------------------------主程序-------------------------------------------------------
 int main()
 {
+    SetConsoleOutputCP(65001); // 设置控制台为 UTF-8
     // 初始化头结点
     guest_node *guest_head = new guest_node{{}, nullptr};
     room_node *room_head = new room_node{{}, nullptr};
@@ -1330,11 +1359,11 @@ int main()
     int gReturn = LoadGuestsFromFile(guest_head, "guests.txt");
     if (rReturn == 0 && gReturn == 0)
     {
-        cout << "数据加载成功！" << endl;
+        cout << "数据加载成功。" << endl;
     }
     else
     {
-        cout << "数据加载失败！" << endl;
+        cout << "数据加载失败。" << endl;
     }
 
     int first_step;
@@ -1346,7 +1375,8 @@ int main()
 
         if (first_step == 0)
         {
-            cout << "更新完成，欢迎下次使用！" << endl;
+            cout << "更新完成，欢迎下次使用。" << endl;
+            cout << ascii_art::complex_ascii_art << endl;
             break; // 跳出 while
         }
         else if (first_step == 1)
